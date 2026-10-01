@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2f5f1" />
+    <title>Cadastro de alunos</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="page-header">
+        <div class="brand-mark" aria-hidden="true">A</div>
+        <div class="heading-copy">
+          <h1>Cadastro de alunos</h1>
+        </div>
+        <button class="button button-primary" id="new-student" type="button">
+          <span aria-hidden="true">+</span> Novo aluno
+        </button>
+      </header>
+
+      <section class="workspace" aria-labelledby="list-title">
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow">Registros</p>
+            <h2 id="list-title">Alunos cadastrados</h2>
+          </div>
+          <button class="button button-secondary" id="refresh-list" type="button">
+            Atualizar lista
+          </button>
+        </div>
+
+        <p class="notice" id="message" role="status" aria-live="polite" hidden></p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Nome</th>
+                <th scope="col">RA</th>
+                <th scope="col">Curso</th>
+                <th scope="col" class="actions-heading">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="students-table">
+              <tr><td class="empty-state" colspan="4">Carregando alunos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="student-dialog" id="student-dialog" aria-labelledby="dialog-title">
+      <form id="student-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Cadastro</p>
+            <h2 id="dialog-title">Novo aluno</h2>
+          </div>
+          <button class="icon-button" id="close-dialog" type="button" aria-label="Fechar">×</button>
+        </div>
+        <label for="name">Nome <span aria-hidden="true">*</span></label>
+        <input id="name" name="nome" type="text" autocomplete="name" required maxlength="120" />
+        <label for="ra">RA <span aria-hidden="true">*</span></label>
+        <input id="ra" name="ra" type="text" autocomplete="off" required maxlength="40" />
+        <label for="course">Curso</label>
+        <input id="course" name="curso" type="text" autocomplete="off" maxlength="120" />
+        <div class="dialog-actions">
+          <button class="button button-secondary" id="cancel-dialog" type="button">Cancelar</button>
+          <button class="button button-primary" id="save-student" type="submit">Salvar aluno</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
