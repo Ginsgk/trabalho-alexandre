@@ -3,8 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const {
+  inserirCurso,
+  listarCursos,
+  excluirCurso,
   inserirAluno,
   listarAlunos,
+  listarAlunosDoCurso,
   atualizarAluno,
   excluirPorRa,
 } = require('./supabase');
@@ -18,17 +22,52 @@ function responderErro(res, error) {
   console.error(error);
   const status = error.code === '23505' ? 409
     : error.code === '42501' ? 403
-      : error.code === 'PGRST205' ? 503
+      : ['PGRST200', 'PGRST205'].includes(error.code) ? 503
         : 500;
   const mensagem = status === 409
     ? 'Este RA já está cadastrado.'
     : status === 403
       ? 'Acesso negado pelo Supabase. Confira as policies de RLS.'
       : status === 503
-        ? 'Tabela public.alunos não encontrada. Execute supabase.sql no SQL Editor do Supabase.'
+          ? 'Tabela do Supabase não encontrada. Execute migracao_cursos.sql no SQL Editor.'
       : 'Não foi possível concluir a operação. Confira a conexão e o Supabase.';
   res.status(status).json({ erro: mensagem });
 }
+
+app.get('/api/cursos', async (_req, res) => {
+  try {
+    res.json(await listarCursos());
+  } catch (error) {
+    responderErro(res, error);
+  }
+});
+
+app.post('/api/cursos', async (req, res) => {
+  const nome = typeof req.body?.nome === 'string' ? req.body.nome.trim() : '';
+  if (!nome) return res.status(400).json({ erro: 'O nome do curso é obrigatório.' });
+
+  try {
+    res.status(201).json(await inserirCurso(nome));
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ erro: 'Já existe um curso com esse nome.' });
+    }
+    responderErro(res, error);
+  }
+});
+
+app.delete('/api/cursos/:id', async (req, res) => {
+  try {
+    const curso = await excluirCurso(req.params.id);
+    if (!curso) return res.status(404).json({ erro: 'Curso não encontrado.' });
+    res.json(curso);
+  } catch (error) {
+    if (error.code === '23503') {
+      return res.status(409).json({ erro: 'Não é possível excluir: este curso ainda tem alunos.' });
+    }
+    responderErro(res, error);
+  }
+});
 
 app.get('/api/alunos', async (_req, res) => {
   try {
@@ -41,15 +80,26 @@ app.get('/api/alunos', async (_req, res) => {
 app.post('/api/alunos', async (req, res) => {
   const nome = typeof req.body?.nome === 'string' ? req.body.nome.trim() : '';
   const ra = typeof req.body?.ra === 'string' ? req.body.ra.trim() : '';
-  const curso = typeof req.body?.curso === 'string' ? req.body.curso.trim() : '';
+  const cursoId = Number(req.body?.curso_id);
 
-  if (!nome || !ra) {
-    return res.status(400).json({ erro: 'Nome e RA são obrigatórios.' });
+  if (!nome || !ra || !Number.isInteger(cursoId) || cursoId < 1) {
+    return res.status(400).json({ erro: 'Nome, RA e curso são obrigatórios.' });
   }
 
   try {
-    const aluno = await inserirAluno(nome, ra, curso);
+    const aluno = await inserirAluno(nome, ra, cursoId);
     res.status(201).json(aluno);
+  } catch (error) {
+    if (error.code === '23503') {
+      return res.status(400).json({ erro: 'O curso informado não existe.' });
+    }
+    responderErro(res, error);
+  }
+});
+
+app.get('/api/cursos/:id/alunos', async (req, res) => {
+  try {
+    res.json(await listarAlunosDoCurso(req.params.id));
   } catch (error) {
     responderErro(res, error);
   }
@@ -57,7 +107,7 @@ app.post('/api/alunos', async (req, res) => {
 
 app.put('/api/alunos/:ra', async (req, res) => {
   const nome = req.body?.nome;
-  const curso = req.body?.curso;
+  const cursoId = req.body?.curso_id;
   const campos = {};
 
   if (nome !== undefined) {
@@ -67,11 +117,12 @@ app.put('/api/alunos/:ra', async (req, res) => {
     campos.nome = nome.trim();
   }
 
-  if (curso !== undefined) {
-    if (typeof curso !== 'string') {
-      return res.status(400).json({ erro: 'O curso precisa ser um texto.' });
+  if (cursoId !== undefined) {
+    const id = Number(cursoId);
+    if (!Number.isInteger(id) || id < 1) {
+      return res.status(400).json({ erro: 'Selecione um curso válido.' });
     }
-    campos.curso = curso.trim() || null;
+    campos.curso_id = id;
   }
 
   if (Object.keys(campos).length === 0) {
@@ -83,6 +134,9 @@ app.put('/api/alunos/:ra', async (req, res) => {
     if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
     res.json(aluno);
   } catch (error) {
+    if (error.code === '23503') {
+      return res.status(400).json({ erro: 'O curso informado não existe.' });
+    }
     responderErro(res, error);
   }
 });

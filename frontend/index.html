@@ -20,15 +20,47 @@
         </button>
       </header>
 
+      <section class="workspace" aria-labelledby="courses-title">
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow">Lado 1 do relacionamento</p>
+            <h2 id="courses-title">Cursos</h2>
+          </div>
+          <form class="course-form" id="course-form">
+            <label class="visually-hidden" for="new-course">Nome do novo curso</label>
+            <input id="new-course" name="nome" type="text" placeholder="Nome do novo curso" required maxlength="120" />
+            <button class="button button-primary" type="submit">Adicionar curso</button>
+          </form>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Curso</th>
+                <th scope="col">Alunos</th>
+                <th scope="col" class="actions-heading">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="courses-table">
+              <tr><td class="empty-state" colspan="3">Carregando cursos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="workspace" aria-labelledby="list-title">
         <div class="workspace-heading">
           <div>
             <p class="eyebrow">Registros</p>
             <h2 id="list-title">Alunos cadastrados</h2>
           </div>
-          <button class="button button-secondary" id="refresh-list" type="button">
-            Atualizar lista
-          </button>
+          <div class="student-controls">
+            <label class="visually-hidden" for="course-filter">Filtrar por curso</label>
+            <select id="course-filter">
+              <option value="">Todos os cursos</option>
+            </select>
+            <button class="button button-secondary" id="refresh-list" type="button">Atualizar lista</button>
+          </div>
         </div>
 
         <p class="notice" id="message" role="status" aria-live="polite" hidden></p>
@@ -61,11 +93,14 @@
           <button class="icon-button" id="close-dialog" type="button" aria-label="Fechar">×</button>
         </div>
         <label for="name">Nome <span aria-hidden="true">*</span></label>
+        
         <input id="name" name="nome" type="text" autocomplete="name" required maxlength="120" />
         <label for="ra">RA <span aria-hidden="true">*</span></label>
         <input id="ra" name="ra" type="text" autocomplete="off" required maxlength="40" />
-        <label for="course">Curso</label>
-        <input id="course" name="curso" type="text" autocomplete="off" maxlength="120" />
+        <label for="course">Curso <span aria-hidden="true">*</span></label>
+        <select id="course" name="curso_id" required>
+          <option value="">Selecione um curso</option>
+        </select>
         <div class="dialog-actions">
           <button class="button button-secondary" id="cancel-dialog" type="button">Cancelar</button>
           <button class="button button-primary" id="save-student" type="submit">Salvar aluno</button>

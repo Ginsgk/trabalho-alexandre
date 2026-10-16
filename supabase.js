@@ -8,11 +8,50 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function inserirAluno(nome, ra, curso) {
+const COLUNAS_ALUNO = 'id, nome, ra, curso_id, curso:cursos(id, nome)';
+
+async function inserirCurso(nome) {
+  const { data, error } = await supabase
+    .from('cursos')
+    .insert({ nome })
+    .select('id, nome')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function listarCursos() {
+  const { data, error } = await supabase
+    .from('cursos')
+    .select('id, nome, alunos(count)')
+    .order('nome', { ascending: true });
+
+  if (error) throw error;
+  return data.map((curso) => ({
+    id: curso.id,
+    nome: curso.nome,
+    total_alunos: curso.alunos[0]?.count ?? 0,
+  }));
+}
+
+async function excluirCurso(id) {
+  const { data, error } = await supabase
+    .from('cursos')
+    .delete()
+    .eq('id', id)
+    .select('id, nome')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function inserirAluno(nome, ra, cursoId) {
   const { data, error } = await supabase
     .from('alunos')
-    .insert({ nome, ra, curso: curso || null })
-    .select()
+    .insert({ nome, ra, curso_id: cursoId })
+    .select(COLUNAS_ALUNO)
     .single();
 
   if (error) throw error;
@@ -22,7 +61,18 @@ async function inserirAluno(nome, ra, curso) {
 async function listarAlunos() {
   const { data, error } = await supabase
     .from('alunos')
-    .select('*')
+    .select(COLUNAS_ALUNO)
+    .order('id', { ascending: true });
+
+  if (error) throw error;
+  return data;
+}
+
+async function listarAlunosDoCurso(cursoId) {
+  const { data, error } = await supabase
+    .from('alunos')
+    .select(COLUNAS_ALUNO)
+    .eq('curso_id', cursoId)
     .order('id', { ascending: true });
 
   if (error) throw error;
@@ -34,7 +84,7 @@ async function atualizarAluno(ra, campos) {
     .from('alunos')
     .update(campos)
     .eq('ra', ra)
-    .select()
+    .select(COLUNAS_ALUNO)
     .maybeSingle();
 
   if (error) throw error;
@@ -53,4 +103,13 @@ async function excluirPorRa(ra) {
   return data;
 }
 
-module.exports = { inserirAluno, listarAlunos, atualizarAluno, excluirPorRa };
+module.exports = {
+  inserirCurso,
+  listarCursos,
+  excluirCurso,
+  inserirAluno,
+  listarAlunos,
+  listarAlunosDoCurso,
+  atualizarAluno,
+  excluirPorRa,
+};
