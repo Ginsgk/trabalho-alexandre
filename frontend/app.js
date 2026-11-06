@@ -11,6 +11,9 @@ const courseFilter = document.getElementById('course-filter');
 const courseForm = document.getElementById('course-form');
 const newCourseInput = document.getElementById('new-course');
 const saveButton = document.getElementById('save-student');
+const studentSearchForm = document.getElementById('student-search');
+const studentSearchType = document.getElementById('student-search-type');
+const studentSearchTerm = document.getElementById('student-search-term');
 let editingRa = null;
 
 function showMessage(text, isError = false) {
@@ -141,7 +144,36 @@ async function loadStudents() {
   }
 }
 
+async function searchStudents(event) {
+  event.preventDefault();
+  const term = studentSearchTerm.value.trim();
+  if (!term) {
+    showMessage('Digite um nome ou RA para buscar.', true);
+    studentSearchTerm.focus();
+    return;
+  }
+
+  courseFilter.value = '';
+  tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Buscando alunos...</td></tr>';
+  try {
+    if (studentSearchType.value === 'ra') {
+      const student = await request(`/api/alunos/ra/${encodeURIComponent(term)}`);
+      renderStudents([student]);
+      showMessage('1 aluno encontrado.');
+      return;
+    }
+
+    const students = await request(`/api/alunos/busca?nome=${encodeURIComponent(term)}`);
+    renderStudents(students);
+    showMessage(`${students.length} ${students.length === 1 ? 'aluno encontrado' : 'alunos encontrados'}.`);
+  } catch (error) {
+    renderStudents([]);
+    showMessage(error.message, true);
+  }
+}
+
 async function refreshData() {
+  studentSearchForm.reset();
   await loadCourses();
   await loadStudents();
 }
@@ -236,9 +268,20 @@ async function deleteStudent(student) {
 }
 
 document.getElementById('new-student').addEventListener('click', () => openDialog());
-document.getElementById('refresh-list').addEventListener('click', loadStudents);
+document.getElementById('refresh-list').addEventListener('click', () => {
+  studentSearchForm.reset();
+  loadStudents();
+});
+document.getElementById('clear-student-search').addEventListener('click', () => {
+  studentSearchForm.reset();
+  loadStudents();
+});
 courseForm.addEventListener('submit', addCourse);
-courseFilter.addEventListener('change', loadStudents);
+studentSearchForm.addEventListener('submit', searchStudents);
+courseFilter.addEventListener('change', () => {
+  studentSearchForm.reset();
+  loadStudents();
+});
 document.getElementById('close-dialog').addEventListener('click', closeDialog);
 document.getElementById('cancel-dialog').addEventListener('click', closeDialog);
 form.addEventListener('submit', saveStudent);

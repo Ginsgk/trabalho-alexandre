@@ -5,6 +5,7 @@
   "description": "CRUD",
   "main": "server.js",
   "scripts": {
+    "demo": "node index.js",
     "start": "node server.js"
   },
   "dependencies": {

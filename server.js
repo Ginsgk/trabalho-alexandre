@@ -9,6 +9,8 @@ const {
   inserirAluno,
   listarAlunos,
   listarAlunosDoCurso,
+  buscarPorRa,
+  buscarPorNome,
   atualizarAluno,
   excluirPorRa,
 } = require('./supabase');
@@ -29,7 +31,7 @@ function responderErro(res, error) {
     : status === 403
       ? 'Acesso negado pelo Supabase. Confira as policies de RLS.'
       : status === 503
-          ? 'Tabela do Supabase não encontrada. Execute migracao_cursos.sql no SQL Editor.'
+          ? 'Tabelas do Supabase não encontradas. Para banco novo, execute tabela_cursos.sql e tabela_alunos.sql; para banco antigo, migracao_cursos.sql. Depois execute policies.sql.'
       : 'Não foi possível concluir a operação. Confira a conexão e o Supabase.';
   res.status(status).json({ erro: mensagem });
 }
@@ -72,6 +74,27 @@ app.delete('/api/cursos/:id', async (req, res) => {
 app.get('/api/alunos', async (_req, res) => {
   try {
     res.json(await listarAlunos());
+  } catch (error) {
+    responderErro(res, error);
+  }
+});
+
+app.get('/api/alunos/ra/:ra', async (req, res) => {
+  try {
+    const aluno = await buscarPorRa(req.params.ra);
+    if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
+    res.json(aluno);
+  } catch (error) {
+    responderErro(res, error);
+  }
+});
+
+app.get('/api/alunos/busca', async (req, res) => {
+  const nome = typeof req.query.nome === 'string' ? req.query.nome.trim() : '';
+  if (!nome) return res.status(400).json({ erro: 'Informe um nome para buscar.' });
+
+  try {
+    res.json(await buscarPorNome(nome));
   } catch (error) {
     responderErro(res, error);
   }

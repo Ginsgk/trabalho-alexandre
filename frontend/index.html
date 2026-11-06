@@ -63,6 +63,18 @@
           </div>
         </div>
 
+        <form class="student-search" id="student-search">
+          <label class="visually-hidden" for="student-search-type">Tipo de busca</label>
+          <select id="student-search-type" name="tipo">
+            <option value="nome">Por nome</option>
+            <option value="ra">Por RA</option>
+          </select>
+          <label class="visually-hidden" for="student-search-term">Nome ou RA do aluno</label>
+          <input id="student-search-term" name="termo" type="search" placeholder="Buscar aluno..." required maxlength="120" />
+          <button class="button button-primary" type="submit">Buscar</button>
+          <button class="button button-secondary" id="clear-student-search" type="button">Limpar busca</button>
+        </form>
+
         <p class="notice" id="message" role="status" aria-live="polite" hidden></p>
 
         <div class="table-scroll">

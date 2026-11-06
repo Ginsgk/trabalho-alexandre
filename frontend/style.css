@@ -54,6 +54,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #555; outline-off
 .course-form, .student-controls { display: flex; align-items: center; gap: 8px; }
 .course-form input { width: min(260px, 40vw); min-height: 34px; padding: 6px 8px; border: 1px solid #888; }
 .student-controls select { min-height: 34px; padding: 6px 8px; border: 1px solid #888; background: #fff; }
+.student-search { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.student-search select, .student-search input { min-height: 34px; padding: 6px 8px; border: 1px solid #888; background: #fff; }
+.student-search input { width: min(320px, 40vw); }
 .workspace-heading .eyebrow { display: none; }
 .workspace-heading h2, .dialog-heading h2 { margin: 0; font-size: 20px; }
 .table-scroll { overflow-x: auto; }
@@ -89,5 +92,7 @@ th { background: #f2f2f2; font-weight: 600; }
   .course-form, .student-controls { width: 100%; }
   .course-form input, .student-controls select { min-width: 0; width: 100%; }
   .course-form, .student-controls { align-items: stretch; flex-direction: column; }
+  .student-search { align-items: stretch; flex-direction: column; }
+  .student-search select, .student-search input, .student-search button { width: 100%; }
   .actions-cell { flex-direction: column; }
 }

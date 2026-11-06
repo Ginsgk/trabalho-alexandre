@@ -79,6 +79,28 @@ async function listarAlunosDoCurso(cursoId) {
   return data;
 }
 
+async function buscarPorRa(ra) {
+  const { data, error } = await supabase
+    .from('alunos')
+    .select(COLUNAS_ALUNO)
+    .eq('ra', ra)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function buscarPorNome(parteNome) {
+  const { data, error } = await supabase
+    .from('alunos')
+    .select(COLUNAS_ALUNO)
+    .ilike('nome', `%${parteNome}%`)
+    .order('nome', { ascending: true });
+
+  if (error) throw error;
+  return data;
+}
+
 async function atualizarAluno(ra, campos) {
   const { data, error } = await supabase
     .from('alunos')
@@ -110,6 +132,8 @@ module.exports = {
   inserirAluno,
   listarAlunos,
   listarAlunosDoCurso,
+  buscarPorRa,
+  buscarPorNome,
   atualizarAluno,
   excluirPorRa,
 };
