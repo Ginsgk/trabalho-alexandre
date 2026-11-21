@@ -58,25 +58,44 @@ async function inserirAluno(nome, ra, cursoId) {
   return data;
 }
 
-async function listarAlunos() {
-  const { data, error } = await supabase
+async function listarAlunosPaginado(cursoId, inicio = 0, limite, busca = '', ordenacao = null) {
+  let consulta = supabase
     .from('alunos')
-    .select(COLUNAS_ALUNO)
-    .order('id', { ascending: true });
+    .select(COLUNAS_ALUNO, limite ? { count: 'exact' } : undefined);
 
+  if (cursoId) consulta = consulta.eq('curso_id', cursoId);
+
+  const termo = String(busca || '').replace(/[%_,]/g, ' ').trim();
+  if (termo) consulta = consulta.or(`nome.ilike.%${termo}%,ra.ilike.%${termo}%`);
+
+  if (ordenacao?.ordem === 'curso') {
+    consulta = consulta.order('nome', {
+      ascending: ordenacao.direcao !== 'desc',
+      foreignTable: 'cursos',
+    });
+  } else if (ordenacao?.ordem === 'nome' || ordenacao?.ordem === 'ra') {
+    consulta = consulta.order(ordenacao.ordem, {
+      ascending: ordenacao.direcao !== 'desc',
+    });
+  } else {
+    consulta = consulta.order('id', { ascending: true });
+  }
+
+  if (ordenacao?.ordem) consulta = consulta.order('id', { ascending: true });
+  if (limite) consulta = consulta.range(inicio, inicio + limite - 1);
+
+  const { data, error, count } = await consulta;
   if (error) throw error;
-  return data;
+  if (!limite) return data || [];
+  return { alunos: data || [], total: count ?? 0 };
 }
 
-async function listarAlunosDoCurso(cursoId) {
-  const { data, error } = await supabase
-    .from('alunos')
-    .select(COLUNAS_ALUNO)
-    .eq('curso_id', cursoId)
-    .order('id', { ascending: true });
+async function listarAlunos(opcoes = {}) {
+  return listarAlunosPaginado(null, opcoes.inicio || 0, opcoes.limite, opcoes.busca, opcoes.ordenacao);
+}
 
-  if (error) throw error;
-  return data;
+async function listarAlunosDoCurso(cursoId, opcoes = {}) {
+  return listarAlunosPaginado(cursoId, opcoes.inicio || 0, opcoes.limite, opcoes.busca, opcoes.ordenacao);
 }
 
 async function buscarPorRa(ra) {
@@ -130,6 +149,7 @@ module.exports = {
   listarCursos,
   excluirCurso,
   inserirAluno,
+  listarAlunosPaginado,
   listarAlunos,
   listarAlunosDoCurso,
   buscarPorRa,

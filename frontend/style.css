@@ -66,6 +66,16 @@ th { background: #f2f2f2; font-weight: 600; }
 .actions-heading { text-align: right; }
 .actions-cell { display: flex; justify-content: flex-end; gap: 6px; white-space: nowrap; }
 .empty-state { padding: 24px 12px; color: #555; text-align: center; }
+.rolagem-status { margin: 0; padding: 0.75rem 1.15rem 0.9rem; color: #555; font-size: 0.85rem; border-top: 1px solid #ccc; background: #fafcfd; }
+.filtros-ativos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.filtros-ativos[hidden] { display: none; }
+.criterio-rotulo { color: #555; font-size: 0.85rem; }
+.nuvem-filtro { display: inline-flex; align-items: center; padding: 0.35rem 0.35rem 0.35rem 0.85rem; border: 1px solid #b7deca; border-radius: 999px; background: #e7f6ee; color: #222; font-weight: 600; }
+.nuvem-filtro-texto { margin-right: 4px; }
+.nuvem-filtro-limpar { width: 1.45rem; height: 1.45rem; padding: 0; border: 0; border-radius: 999px; background: #fff; color: #555; line-height: 1; }
+.th-ordem { border: none; background: transparent; cursor: pointer; font-weight: 600; text-transform: uppercase; }
+.th-ordem.ativa { color: #167a57; }
+.seta-ordem { display: inline-block; min-width: 1rem; }
 
 .notice { margin: 12px 0; padding: 8px; border: 1px solid #aaa; background: #f7f7f7; }
 .notice.error { border-color: #a00; color: #a00; }

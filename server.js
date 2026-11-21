@@ -36,6 +36,53 @@ function responderErro(res, error) {
   res.status(status).json({ erro: mensagem });
 }
 
+function lerPagina(query) {
+  if (query.limite === undefined && query.inicio === undefined) return null;
+  const limite = Number(query.limite);
+  const inicio = query.inicio === undefined ? 0 : Number(query.inicio);
+  if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
+    return { erro: 'Informe limite entre 1 e 100' };
+  }
+  if (!Number.isInteger(inicio) || inicio < 0) {
+    return { erro: 'inicio inválido' };
+  }
+  return { inicio, limite };
+}
+
+function lerBusca(query) {
+  return typeof query.busca === 'string' ? query.busca.trim() : '';
+}
+
+function lerOrdenacao(query) {
+  const permitidas = { nome: 'nome', ra: 'ra', curso: 'curso' };
+  const ordem = permitidas[query.ordem];
+  if (!ordem) return null;
+  return { ordem, direcao: query.direcao === 'desc' ? 'desc' : 'asc' };
+}
+
+function opcoesDaLista(query) {
+  const pagina = lerPagina(query);
+  if (pagina?.erro) return { erro: pagina.erro };
+  const busca = lerBusca(query);
+  const ordenacao = lerOrdenacao(query);
+  return {
+    pagina,
+    busca,
+    ordenacao,
+    opcoes: {
+      ...(pagina || {}),
+      busca,
+      ordenacao,
+    },
+  };
+}
+
+function respostaDaLista(res, pagina, dados, busca = '', ordenacao = null) {
+  res.json(pagina
+    ? { ...(dados || {}), inicio: pagina.inicio, limite: pagina.limite, busca, ordenacao }
+    : dados);
+}
+
 app.get('/api/cursos', async (_req, res) => {
   try {
     res.json(await listarCursos());
@@ -71,13 +118,19 @@ app.delete('/api/cursos/:id', async (req, res) => {
   }
 });
 
-app.get('/api/alunos', async (_req, res) => {
+async function listarAlunosApi(req, res) {
   try {
-    res.json(await listarAlunos());
+    const lida = opcoesDaLista(req.query);
+    if (lida.erro) return res.status(400).json({ erro: lida.erro });
+    const dados = await listarAlunos(lida.opcoes);
+    respostaDaLista(res, lida.pagina, dados, lida.busca, lida.ordenacao);
   } catch (error) {
     responderErro(res, error);
   }
-});
+}
+
+app.get('/api/alunos', listarAlunosApi);
+app.get('/alunos', listarAlunosApi);
 
 app.get('/api/alunos/ra/:ra', async (req, res) => {
   try {
@@ -120,13 +173,19 @@ app.post('/api/alunos', async (req, res) => {
   }
 });
 
-app.get('/api/cursos/:id/alunos', async (req, res) => {
+async function listarAlunosDoCursoApi(req, res) {
   try {
-    res.json(await listarAlunosDoCurso(req.params.id));
+    const lida = opcoesDaLista(req.query);
+    if (lida.erro) return res.status(400).json({ erro: lida.erro });
+    const dados = await listarAlunosDoCurso(req.params.id, lida.opcoes);
+    respostaDaLista(res, lida.pagina, dados, lida.busca, lida.ordenacao);
   } catch (error) {
     responderErro(res, error);
   }
-});
+}
+
+app.get('/api/cursos/:id/alunos', listarAlunosDoCursoApi);
+app.get('/cursos/:id/alunos', listarAlunosDoCursoApi);
 
 app.put('/api/alunos/:ra', async (req, res) => {
   const nome = req.body?.nome;
@@ -176,6 +235,17 @@ app.delete('/api/alunos/:ra', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-app.listen(PORT, () => {
-  console.log(`Aplicação disponível em http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Aplicação disponível em http://localhost:${PORT}`);
+  });
+}
+
+module.exports = {
+  app,
+  lerPagina,
+  lerBusca,
+  lerOrdenacao,
+  opcoesDaLista,
+  respostaDaLista,
+};

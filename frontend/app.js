@@ -7,13 +7,26 @@ const title = document.getElementById('dialog-title');
 const nameInput = document.getElementById('name');
 const raInput = document.getElementById('ra');
 const courseInput = document.getElementById('course');
-const courseFilter = document.getElementById('course-filter');
+const courseFilter = document.getElementById('filtro-curso');
 const courseForm = document.getElementById('course-form');
 const newCourseInput = document.getElementById('new-course');
 const saveButton = document.getElementById('save-student');
-const studentSearchForm = document.getElementById('student-search');
-const studentSearchType = document.getElementById('student-search-type');
-const studentSearchTerm = document.getElementById('student-search-term');
+const formBusca = document.getElementById('form-busca');
+const inputBusca = document.getElementById('busca-aluno');
+const filtrosAtivos = document.getElementById('filtros-ativos');
+const statusAlunos = document.getElementById('alunos-status');
+const sentinelaAlunos = document.getElementById('sentinela-alunos');
+
+const ALUNOS_POR_PAGINA = 5;
+let alunosInicio = 0;
+let alunosTotal = 0;
+let alunosTemMais = false;
+let alunosCarregando = false;
+let alunosErro = false;
+let alunosPedido = 0;
+let alunosBusca = '';
+let alunosOrdem = '';
+let alunosDirecao = 'asc';
 let editingRa = null;
 
 function showMessage(text, isError = false) {
@@ -25,7 +38,7 @@ function showMessage(text, isError = false) {
 async function request(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.erro || 'Não foi possível concluir a operação.');
+  if (!response.ok) throw new Error(data.erro || 'Nao foi possivel concluir a operacao.');
   return data;
 }
 
@@ -44,32 +57,182 @@ function createAction(label, className, action) {
   return button;
 }
 
-function renderStudents(students) {
-  tableBody.replaceChildren();
-  if (!students.length) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.className = 'empty-state';
-    cell.colSpan = 4;
-    cell.textContent = 'Nenhum aluno cadastrado ainda.';
-    row.appendChild(cell);
-    tableBody.appendChild(row);
+function linhaAluno(aluno) {
+  const row = document.createElement('tr');
+  row.append(createCell(aluno.nome), createCell(aluno.ra), createCell(aluno.curso?.nome));
+  const actionsCell = document.createElement('td');
+  actionsCell.className = 'actions-cell';
+  actionsCell.append(
+    createAction('Editar', 'button-secondary', () => openDialog(aluno)),
+    createAction('Excluir', 'button-danger', () => deleteStudent(aluno)),
+  );
+  row.appendChild(actionsCell);
+  return row;
+}
+
+function atualizarStatusAlunos() {
+  if (alunosErro) {
+    statusAlunos.textContent = 'A lista não carregou. Use Atualizar lista para tentar de novo.';
+  } else if (alunosCarregando && alunosInicio === 0) {
+    statusAlunos.textContent = 'Carregando...';
+  } else if (!alunosTotal) {
+    statusAlunos.textContent = 'Nenhum aluno para mostrar.';
+  } else if (alunosCarregando) {
+    statusAlunos.textContent = `Mostrando ${alunosInicio} de ${alunosTotal}. Carregando mais...`;
+  } else if (alunosTemMais) {
+    statusAlunos.textContent = `Mostrando ${alunosInicio} de ${alunosTotal}. Role a tela para carregar mais.`;
+  } else {
+    statusAlunos.textContent = `Mostrando ${alunosInicio} de ${alunosTotal}. Fim da lista.`;
+  }
+}
+
+async function listarAlunos(acrescentar = false) {
+  if (acrescentar && (alunosCarregando || !alunosTemMais)) return;
+
+  const pedido = acrescentar ? alunosPedido : ++alunosPedido;
+  const inicio = acrescentar ? alunosInicio : 0;
+  const cursoId = courseFilter.value;
+  const base = cursoId ? `/api/cursos/${encodeURIComponent(cursoId)}/alunos` : '/api/alunos';
+
+  alunosCarregando = true;
+  alunosErro = false;
+  if (!acrescentar) {
+    alunosInicio = 0;
+    alunosTotal = 0;
+    alunosTemMais = false;
+    tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Carregando...</td></tr>';
+  }
+  atualizarStatusAlunos();
+
+  try {
+    const params = new URLSearchParams({ inicio: String(inicio), limite: String(ALUNOS_POR_PAGINA) });
+    if (alunosBusca) params.set('busca', alunosBusca);
+    if (alunosOrdem) {
+      params.set('ordem', alunosOrdem);
+      params.set('direcao', alunosDirecao);
+    }
+    const resposta = await fetch(`${base}?${params.toString()}`);
+    const dados = await resposta.json();
+    if (pedido !== alunosPedido) return;
+    if (!resposta.ok) {
+      alunosErro = true;
+      showMessage(dados.erro || 'Erro ao listar alunos', true);
+      tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Não foi possível carregar.</td></tr>';
+      return;
+    }
+
+    const alunos = Array.isArray(dados) ? dados : (dados.alunos || []);
+    if (!acrescentar) tableBody.replaceChildren();
+    if (!alunos.length) {
+      if (!acrescentar) {
+        tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Nenhum aluno encontrado.</td></tr>';
+      }
+      alunosTotal = Array.isArray(dados) ? alunos.length : (dados.total || 0);
+      alunosInicio = inicio;
+      alunosTemMais = false;
+      return;
+    }
+
+    alunosTotal = Array.isArray(dados) ? alunos.length : (dados.total || 0);
+    for (const aluno of alunos) tableBody.appendChild(linhaAluno(aluno));
+    alunosInicio = inicio + alunos.length;
+    alunosTemMais = alunosInicio < alunosTotal;
+  } catch (error) {
+    if (pedido !== alunosPedido) return;
+    alunosErro = true;
+    tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Não foi possível carregar.</td></tr>';
+    showMessage(error.message, true);
+  } finally {
+    if (pedido === alunosPedido) {
+      alunosCarregando = false;
+      atualizarStatusAlunos();
+      pedirMaisSeVisivel();
+    }
+  }
+}
+
+function pedirMaisSeVisivel() {
+  if (!alunosTemMais || alunosCarregando || !sentinelaAlunos) return;
+  const topo = sentinelaAlunos.getBoundingClientRect().top;
+  if (topo <= window.innerHeight + 160) listarAlunos(true);
+}
+
+function nomeCursoDoFiltro() {
+  const option = courseFilter.options[courseFilter.selectedIndex];
+  return option?.textContent || '';
+}
+
+function criarNuvemFiltro(rotulo, texto, acao) {
+  const grupo = document.createElement('span');
+  const titulo = document.createElement('span');
+  titulo.className = 'criterio-rotulo';
+  titulo.textContent = `${rotulo}:`;
+  const nuvem = document.createElement('span');
+  nuvem.className = 'nuvem-filtro';
+  const label = document.createElement('span');
+  label.className = 'nuvem-filtro-texto';
+  label.textContent = texto;
+  const limpar = document.createElement('button');
+  limpar.type = 'button';
+  limpar.className = 'nuvem-filtro-limpar';
+  limpar.textContent = '×';
+  limpar.setAttribute('aria-label', `Limpar ${rotulo.toLowerCase()}`);
+  limpar.addEventListener('click', acao);
+  nuvem.append(label, limpar);
+  grupo.append(titulo, document.createTextNode(' '), nuvem);
+  return grupo;
+}
+
+function atualizarFiltrosAtivos() {
+  filtrosAtivos.replaceChildren();
+  const temCurso = Boolean(courseFilter.value);
+  const temBusca = Boolean(alunosBusca);
+  if (!temCurso && !temBusca) {
+    filtrosAtivos.hidden = true;
     return;
   }
+  if (temCurso) filtrosAtivos.appendChild(criarNuvemFiltro('Curso', nomeCursoDoFiltro(), limparFiltroCurso));
+  if (temBusca) filtrosAtivos.appendChild(criarNuvemFiltro('Pesquisa', alunosBusca, limparBusca));
+  filtrosAtivos.hidden = false;
+}
 
-  for (const student of students) {
-    const row = document.createElement('tr');
-    row.append(createCell(student.nome), createCell(student.ra), createCell(student.curso?.nome));
+function limparFiltroCurso() {
+  courseFilter.value = '';
+  atualizarFiltrosAtivos();
+  listarAlunos(false);
+}
 
-    const actionsCell = document.createElement('td');
-    actionsCell.className = 'actions-cell';
-    actionsCell.append(
-      createAction('Editar', 'button-secondary', () => openDialog(student)),
-      createAction('Excluir', 'button-danger', () => deleteStudent(student)),
-    );
-    row.appendChild(actionsCell);
-    tableBody.appendChild(row);
+function limparBusca() {
+  inputBusca.value = '';
+  alunosBusca = '';
+  atualizarFiltrosAtivos();
+  listarAlunos(false);
+}
+
+function pesquisarAlunos(evento) {
+  evento.preventDefault();
+  alunosBusca = inputBusca.value.trim();
+  atualizarFiltrosAtivos();
+  listarAlunos(false);
+}
+
+function atualizarCabecalhosOrdem() {
+  document.querySelectorAll('.th-ordem').forEach((botao) => {
+    const ativa = botao.dataset.ordem === alunosOrdem;
+    botao.classList.toggle('ativa', ativa);
+    botao.querySelector('.seta-ordem').textContent = ativa ? (alunosDirecao === 'asc' ? ' ↑' : ' ↓') : '';
+  });
+}
+
+function ordenarPorColuna(coluna) {
+  if (alunosOrdem === coluna) {
+    alunosDirecao = alunosDirecao === 'asc' ? 'desc' : 'asc';
+  } else {
+    alunosOrdem = coluna;
+    alunosDirecao = 'asc';
   }
+  atualizarCabecalhosOrdem();
+  listarAlunos(false);
 }
 
 function fillCourseSelects(courses) {
@@ -77,16 +240,15 @@ function fillCourseSelects(courses) {
   const selectedCourse = courseInput.value;
   courseFilter.replaceChildren(new Option('Todos os cursos', ''));
   courseInput.replaceChildren(new Option('Selecione um curso', ''));
-
   for (const course of courses) {
     courseFilter.add(new Option(course.nome, course.id));
     courseInput.add(new Option(course.nome, course.id));
   }
-
   courseFilter.value = selectedFilter;
   courseInput.value = selectedCourse;
   if (courseFilter.selectedIndex === -1) courseFilter.value = '';
   if (courseInput.selectedIndex === -1) courseInput.value = '';
+  atualizarFiltrosAtivos();
 }
 
 function renderCourses(courses) {
@@ -101,17 +263,16 @@ function renderCourses(courses) {
     coursesTable.appendChild(row);
     return;
   }
-
   for (const course of courses) {
     const row = document.createElement('tr');
     row.append(createCell(course.nome), createCell(String(course.total_alunos)));
-
     const actionsCell = document.createElement('td');
     actionsCell.className = 'actions-cell';
     actionsCell.append(
       createAction('Ver alunos', 'button-secondary', async () => {
-        courseFilter.value = course.id;
-        await loadStudents();
+        courseFilter.value = String(course.id);
+        atualizarFiltrosAtivos();
+        await listarAlunos(false);
       }),
       createAction('Excluir', 'button-danger', () => deleteCourse(course)),
     );
@@ -131,51 +292,9 @@ async function loadCourses() {
   }
 }
 
-async function loadStudents() {
-  tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Carregando alunos...</td></tr>';
-  try {
-    const courseId = courseFilter.value;
-    const url = courseId ? `/api/cursos/${encodeURIComponent(courseId)}/alunos` : '/api/alunos';
-    renderStudents(await request(url));
-    showMessage('');
-  } catch (error) {
-    renderStudents([]);
-    showMessage(error.message, true);
-  }
-}
-
-async function searchStudents(event) {
-  event.preventDefault();
-  const term = studentSearchTerm.value.trim();
-  if (!term) {
-    showMessage('Digite um nome ou RA para buscar.', true);
-    studentSearchTerm.focus();
-    return;
-  }
-
-  courseFilter.value = '';
-  tableBody.innerHTML = '<tr><td class="empty-state" colspan="4">Buscando alunos...</td></tr>';
-  try {
-    if (studentSearchType.value === 'ra') {
-      const student = await request(`/api/alunos/ra/${encodeURIComponent(term)}`);
-      renderStudents([student]);
-      showMessage('1 aluno encontrado.');
-      return;
-    }
-
-    const students = await request(`/api/alunos/busca?nome=${encodeURIComponent(term)}`);
-    renderStudents(students);
-    showMessage(`${students.length} ${students.length === 1 ? 'aluno encontrado' : 'alunos encontrados'}.`);
-  } catch (error) {
-    renderStudents([]);
-    showMessage(error.message, true);
-  }
-}
-
 async function refreshData() {
-  studentSearchForm.reset();
   await loadCourses();
-  await loadStudents();
+  await listarAlunos(false);
 }
 
 function openDialog(student = null) {
@@ -205,19 +324,15 @@ function closeDialog() {
 
 async function saveStudent(event) {
   event.preventDefault();
-  const student = {
-    nome: nameInput.value.trim(),
-    ra: raInput.value.trim(),
-    curso_id: Number(courseInput.value),
-  };
   const isEditing = editingRa !== null;
-
   saveButton.disabled = true;
   try {
     await request(isEditing ? `/api/alunos/${encodeURIComponent(editingRa)}` : '/api/alunos', {
       method: isEditing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(isEditing ? { nome: student.nome, curso_id: student.curso_id } : student),
+      body: JSON.stringify(isEditing
+        ? { nome: nameInput.value.trim(), curso_id: Number(courseInput.value) }
+        : { nome: nameInput.value.trim(), ra: raInput.value.trim(), curso_id: Number(courseInput.value) }),
     });
     closeDialog();
     await refreshData();
@@ -268,19 +383,15 @@ async function deleteStudent(student) {
 }
 
 document.getElementById('new-student').addEventListener('click', () => openDialog());
-document.getElementById('refresh-list').addEventListener('click', () => {
-  studentSearchForm.reset();
-  loadStudents();
-});
-document.getElementById('clear-student-search').addEventListener('click', () => {
-  studentSearchForm.reset();
-  loadStudents();
-});
+document.getElementById('btn-atualizar').addEventListener('click', () => refreshData());
 courseForm.addEventListener('submit', addCourse);
-studentSearchForm.addEventListener('submit', searchStudents);
+formBusca.addEventListener('submit', pesquisarAlunos);
 courseFilter.addEventListener('change', () => {
-  studentSearchForm.reset();
-  loadStudents();
+  atualizarFiltrosAtivos();
+  listarAlunos(false);
+});
+document.querySelectorAll('.th-ordem').forEach((botao) => {
+  botao.addEventListener('click', () => ordenarPorColuna(botao.dataset.ordem));
 });
 document.getElementById('close-dialog').addEventListener('click', closeDialog);
 document.getElementById('cancel-dialog').addEventListener('click', closeDialog);
@@ -288,5 +399,7 @@ form.addEventListener('submit', saveStudent);
 dialog.addEventListener('click', (event) => {
   if (event.target === dialog) closeDialog();
 });
+window.addEventListener('scroll', pedirMaisSeVisivel, { passive: true });
+window.addEventListener('resize', pedirMaisSeVisivel);
 
 refreshData();
